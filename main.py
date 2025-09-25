@@ -5,6 +5,7 @@ from utils.ffmpeg_utils import convert_to_wav
 from utils.path_utils import ensure_parent_dir, shard_filepath
 from pathlib import Path
 from oracle import fetch_content_by_id
+from sqlite_db import init_db, upsert_record
 
 # 사용자 입력으로 CONTENT_ID 받기
 user_input = input("조회할 c.CONTENT_ID를 입력하세요: ").strip().strip("'\"")
@@ -23,10 +24,10 @@ if not results:
     print("❌ 해당 CONTENT_ID에 대한 결과가 없습니다.")
     sys.exit(1)
 
-print(f'프록시 경로 : {results["PATH"]}')  # 기존 출력 유지
+print(f'프록시 경로 : {results["PROXY_PATH"]}')  # 기존 출력 유지
 
 # 경로 설정 및 디렉토리 생성
-input_file = Path(config.BASE_DAS) / results["PATH"]
+input_file = Path(config.BASE_DAS) / results["PROXY_PATH"]
 
 cid = results["CONTENT_ID"]  # 안전하게 8자리 보정
 output_file_wav = shard_filepath(config.BASE_STT_WAV, cid, ".wav")
@@ -46,6 +47,16 @@ stt_results = whisper_model.stt_whisper(output_file_wav)
 
 # STT 결과 JSON 저장
 output_file_json = stt_engine.save_to_json(stt_results, output_file_json)
+
+# DB 준비(최초 1회 호출해도 되고, 매 실행시 호출해도 비용 거의 없음)
+init_db()
+
+# UPSERT 저장
+upsert_record(
+    results=results,
+    wav_path=str(output_file_wav),
+    json_path=str(output_file_json),
+)
 
 if __name__ == "__main__":
     pass  # 메인 스크립트로 직접 실행될 때만 동작

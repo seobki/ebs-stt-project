@@ -19,6 +19,7 @@ QUERY = """
     LEFT JOIN EBSDAS.CONTENT_CODE_INFO cci ON c.CONTENT_ID = cci.CONTENT_ID
     LEFT JOIN EBSDAS.MEDIA m ON c.CONTENT_ID = m.CONTENT_ID and m."TYPE" = 'proxy'
     LEFT JOIN dm ON c.CONTENT_ID = dm.CONTENT_ID
+    LEFT JOIN thumb ON c.CONTENT_ID = thumb.CONTENT_ID
     WHERE c.META_TABLE_ID = '81722' AND c.CONTENT_ID = :content_id
 """
 
@@ -58,7 +59,8 @@ def fetch_content_by_id(content_id: int | str):
                 "ARCHIVE_ID": row[3],
                 "SYS_CLIP_ID": row[4],
                 "BRODYMD": row[5],
-                "PATH": row[6],
+                "PROXY_PATH": row[6],
+                "THUMB_PATH": row[7],
             }
         print(f"✅ 데이터 조회 성공: CONTENT_ID={content_id}")
         
