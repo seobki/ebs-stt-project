@@ -4,8 +4,15 @@ import sqlite3
 from pathlib import Path
 from datetime import datetime
 import config
+import os
 
 DB_FILENAME = "stt_index.db"
+NAS_PREFIX = "/mnt/nas_stt/"
+
+def _strip_prefix(path: str) -> str:
+    if path.startswith(NAS_PREFIX):
+        return path[len(NAS_PREFIX):].lstrip("/")  # 앞에 / 중복 제거
+    return path
 
 def _db_path() -> Path:
     # 이제 프로젝트 하위 db/ 를 사용
@@ -85,8 +92,8 @@ def upsert_record(results: dict, wav_path: str, json_path: str) -> None:
                 "brodymd":    brodymd,
                 "proxy_path": results.get("PROXY_PATH"),
                 "thumb_path": results.get("THUMB_PATH"),
-                "wav_path":   str(wav_path),
-                "json_path":  str(json_path),
+                "wav_path":   _strip_prefix(wav_path),
+                "json_path":  _strip_prefix(json_path),
                 "created_at": now,
                 "updated_at": now,
             })
@@ -95,3 +102,4 @@ def upsert_record(results: dict, wav_path: str, json_path: str) -> None:
             
     except Exception as e:
         print(f"❌ SQLite 저장 실패: {e}")
+    

@@ -5,7 +5,7 @@ from utils.ffmpeg_utils import convert_to_wav
 from utils.path_utils import ensure_parent_dir, shard_filepath
 from pathlib import Path
 from oracle import fetch_content_by_id
-from sqlite_db import init_db, upsert_record
+from sqlite_db import init_db, upsert_record, _strip_prefix
 
 # 사용자 입력으로 CONTENT_ID 받기
 user_input = input("조회할 c.CONTENT_ID를 입력하세요: ").strip().strip("'\"")
