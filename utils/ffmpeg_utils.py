@@ -11,6 +11,7 @@ def convert_to_wav(input_path: str, output_path: str):
         
         ffmpeg_command = [
             "ffmpeg",
+            "-y",  # 기존 파일 덮어쓰기
             "-i", input_path,
             "-ar", "16000",
             "-ac", "1",

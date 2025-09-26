@@ -5,7 +5,7 @@ from utils.ffmpeg_utils import convert_to_wav
 from utils.path_utils import ensure_parent_dir, shard_filepath
 from pathlib import Path
 from oracle import fetch_content_by_id
-from sqlite_db import init_db, upsert_record, _strip_prefix
+from sqlite_db import init_db, upsert_record, upsert_segments
 
 # 사용자 입력으로 CONTENT_ID 받기
 user_input = input("조회할 c.CONTENT_ID를 입력하세요: ").strip().strip("'\"")
@@ -51,12 +51,15 @@ output_file_json = stt_engine.save_to_json(stt_results, output_file_json)
 # DB 준비(최초 1회 호출해도 되고, 매 실행시 호출해도 비용 거의 없음)
 init_db()
 
-# UPSERT 저장
+# 메타 저장
 upsert_record(
     results=results,
     wav_path=str(output_file_wav),
     json_path=str(output_file_json),
 )
+
+# 세그먼트 저장
+upsert_segments(content_id=str(results["CONTENT_ID"]), stt_segments=stt_results)
 
 if __name__ == "__main__":
     pass  # 메인 스크립트로 직접 실행될 때만 동작
