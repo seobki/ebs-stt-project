@@ -1,5 +1,8 @@
 import subprocess
 from datetime import datetime, timedelta
+from utils.logger_utils import get_logger
+
+logger = get_logger("stt_app")
 
 def convert_to_wav(input_path: str, output_path: str):
     # mp4/mxf 등 영상을 wav(16kHz, mono, pcm_s16le)로 변환
@@ -23,9 +26,9 @@ def convert_to_wav(input_path: str, output_path: str):
         elapsed_time = datetime.now() - start_time
         elapsed_str = str(timedelta(seconds=int(elapsed_time.total_seconds()))).zfill(8)
         
-        print(f"wav 파일 저장 성공! : {output_path}, 소요시간 : {elapsed_str}")
+        logger.info(f"wav 파일 저장 성공! : {output_path}, 소요시간 : {elapsed_str}")
         return output_path
         
     except subprocess.CalledProcessError as e:
-        print(f"❌ ffmpeg 변환 실패: {e}")
+        logger.error(f"❌ ffmpeg 변환 실패: {e}")
         raise

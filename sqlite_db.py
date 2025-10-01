@@ -5,6 +5,9 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict
 import config
+from utils.logger_utils import get_logger
+
+logger = get_logger("stt_app")
 
 DB_FILENAME = "stt_index.db"
 NAS_PREFIX = "/mnt/nas_stt/"
@@ -83,7 +86,7 @@ def init_db() -> None:
         cur.execute("CREATE INDEX IF NOT EXISTS idx_segment_start ON stt_segment(content_id, start_ms);")
 
         conn.commit()
-        print(f"✅ SQLite 테이블 준비 완료: {_db_path()}")
+        logger.info(f"✅ SQLite 테이블 준비 완료: {_db_path()}")
 
 def upsert_record(results: dict, wav_path: str, json_path: str) -> None:
     brodymd = results.get("BRODYMD")
@@ -131,10 +134,10 @@ def upsert_record(results: dict, wav_path: str, json_path: str) -> None:
                 "updated_at": now,
             })
             conn.commit()
-            print(f"✅ SQLite 저장 완료: {cid}")
+            logger.info(f"✅ SQLite 저장 완료: {cid}")
             
     except Exception as e:
-        print(f"❌ SQLite 저장 실패: {e}")
+        logger.error(f"❌ SQLite 저장 실패: {e}")
         
 def upsert_segments(content_id: str, stt_segments: List[Dict]) -> None:
     """
@@ -149,7 +152,7 @@ def upsert_segments(content_id: str, stt_segments: List[Dict]) -> None:
         rows.append((content_id, i, start_ms, end_ms, text))
 
     if not rows:
-        print(f"⚠️ upsert_segments: 빈 세그먼트 - content_id={content_id}")
+        logger.debug(f"⚠️ upsert_segments: 빈 세그먼트 - content_id={content_id}")
         return
     
     try:
@@ -165,8 +168,8 @@ def upsert_segments(content_id: str, stt_segments: List[Dict]) -> None:
                 text     = excluded.text
             """, rows)
             conn.commit()
-            print(f"✅ 세그먼트 저장 완료: content_id={content_id}, count={len(rows)}")
+            logger.info(f"✅ 세그먼트 저장 완료: content_id={content_id}, count={len(rows)}")
     
     except Exception as e:
-        print(f"❌ 세그먼트 저장 실패: content_id={content_id}, error={e}")
+        logger.error(f"❌ 세그먼트 저장 실패: content_id={content_id}, error={e}")
     

@@ -6,25 +6,28 @@ from utils.path_utils import ensure_parent_dir, shard_filepath
 from pathlib import Path
 from oracle import fetch_content_by_id
 from sqlite_db import init_db, upsert_record, upsert_segments
+from utils.logger_utils import get_logger
+
+logger = get_logger("stt_app")
 
 # 사용자 입력으로 CONTENT_ID 받기
 user_input = input("조회할 c.CONTENT_ID를 입력하세요: ").strip().strip("'\"")
 if not user_input:
-    print("❌ CONTENT_ID가 비어 있습니다. 종료합니다.")
+    logger.debug("❌ CONTENT_ID가 비어 있습니다. 종료합니다.")
     sys.exit(1)
 
 # 숫자만 허용하려면 아래 주석 해제 (필요 시)
 if not user_input.isdigit():
-    print("❌ CONTENT_ID는 숫자만 입력하세요. 종료합니다.")
+    logger.debug("❌ CONTENT_ID는 숫자만 입력하세요. 종료합니다.")
     sys.exit(1)
 
 # Oracle 연결
 results = fetch_content_by_id(user_input)  # 내부에서 int 캐스팅 처리됨(리팩 버전 기준)
 if not results:
-    print("❌ 해당 CONTENT_ID에 대한 결과가 없습니다.")
+    logger.debug("❌ 해당 CONTENT_ID에 대한 결과가 없습니다.")
     sys.exit(1)
 
-print(f'프록시 경로 : {results["PROXY_PATH"]}')  # 기존 출력 유지
+logger.info(f'프록시 경로 : {results["PROXY_PATH"]}')  # 기존 출력 유지
 
 # 경로 설정 및 디렉토리 생성
 input_file = Path(config.BASE_DAS) / results["PROXY_PATH"]

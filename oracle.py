@@ -1,6 +1,9 @@
 import oracledb
 import config
 import sys
+from utils.logger_utils import get_logger
+
+logger = get_logger("stt_app")
 
 QUERY = """
     WITH dm AS (
@@ -31,11 +34,11 @@ def connect_to_oracle():
             password=config.ORACLE_PW,
             dsn=config.ORACLE_DSN,
         )
-        print("✅ Oracle 연결 성공")
+        logger.info("✅ Oracle 연결 성공")
         return conn
     
     except oracledb.DatabaseError as e:
-        print(f"❌ Oracle 연결 실패: {e}")
+        logger.error(f"❌ Oracle 연결 실패: {e}")
         sys.exit(1)
 
 def fetch_content_by_id(content_id: int | str):
@@ -62,16 +65,16 @@ def fetch_content_by_id(content_id: int | str):
                 "PROXY_PATH": row[6],
                 "THUMB_PATH": row[7],
             }
-        print(f"✅ 데이터 조회 성공: CONTENT_ID={content_id}")
+        logger.info(f"✅ 데이터 조회 성공: CONTENT_ID={content_id}")
         
     except Exception as e:
-        print(f"❌ 데이터 조회 실패: {e}")
+        logger.error(f"❌ 데이터 조회 실패: {e}")
         return None
     
     finally:
         if conn:
             try:
                 conn.close()
-                print("✅ Oracle 연결 종료")
+                logger.info("✅ Oracle 연결 종료")
             except Exception as e:
-                print(f"❌ Oracle 연결 종료 실패: {e}") 
+                logger.error(f"❌ Oracle 연결 종료 실패: {e}") 
