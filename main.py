@@ -1,67 +1,71 @@
-import config
+# main.py
+import argparse
 import sys
+import config
 import stt_engine
+from pathlib import Path
 from utils.ffmpeg_utils import convert_to_wav
 from utils.path_utils import ensure_parent_dir, shard_filepath
-from pathlib import Path
-from oracle import fetch_content_by_id
-from pg_db import init_db, upsert_record, upsert_segments   # ← 여기만 바뀜
+from oracle import fetch_contents_by_year_range
+from pg_db import init_db, upsert_record, upsert_segments
 from utils.logger_utils import get_logger
 
 logger = get_logger("stt_app")
 
-# 사용자 입력으로 CONTENT_ID 받기
-user_input = input("조회할 c.CONTENT_ID를 입력하세요: ").strip().strip("'\"")
-if not user_input:
-    logger.debug("❌ CONTENT_ID가 비어 있습니다. 종료합니다.")
-    sys.exit(1)
+def process_one(rec: dict, whisper):
+    input_file = Path(config.BASE_DAS) / rec["PROXY_PATH"]
+    cid = rec["CONTENT_ID"]
+    out_wav = shard_filepath(config.BASE_STT_WAV, cid, ".wav")
+    out_json = shard_filepath(config.BASE_STT_JSON, cid, ".json")
+    ensure_parent_dir(out_wav); ensure_parent_dir(out_json)
 
-# 숫자만 허용하려면 아래 유지
-if not user_input.isdigit():
-    logger.debug("❌ CONTENT_ID는 숫자만 입력하세요. 종료합니다.")
-    sys.exit(1)
+    # 1) ffmpeg: mp4 → wav
+    out_wav = convert_to_wav(str(input_file), str(out_wav))
 
-# Oracle 연결
-results = fetch_content_by_id(user_input)  # 내부에서 int 캐스팅 처리됨(리팩 버전 기준)
-if not results:
-    logger.debug("❌ 해당 CONTENT_ID에 대한 결과가 없습니다.")
-    sys.exit(1)
+    # 2) STT
+    stt_results = whisper.stt_whisper(out_wav)
 
-logger.info(f'프록시 경로 : {results["PROXY_PATH"]}')
+    # 3) JSON 저장
+    out_json = stt_engine.save_to_json(stt_results, out_json)
 
-# 경로 설정 및 디렉토리 생성
-input_file = Path(config.BASE_DAS) / results["PROXY_PATH"]
+    # 4) Postgres upsert
+    upsert_record(results=rec, wav_path=str(out_wav), json_path=str(out_json))
+    upsert_segments(content_id=str(cid), stt_segments=stt_results)
 
-cid = results["CONTENT_ID"]
-output_file_wav = shard_filepath(config.BASE_STT_WAV, cid, ".wav")
-output_file_json = shard_filepath(config.BASE_STT_JSON, cid, ".json")
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--year-start", type=int, required=True, help="처리 시작 연도 (예: 2017)")
+    ap.add_argument("--year-end", type=int, required=True, help="처리 종료 연도 (예: 2025)")
+    ap.add_argument("--model-size", type=str, default="small", help="Whisper 모델 크기")
+    args = ap.parse_args()
 
-ensure_parent_dir(output_file_wav)
-ensure_parent_dir(output_file_json)
+    if args.year_start > args.year_end:
+        logger.error("❌ year-start 는 year-end 보다 클 수 없습니다.")
+        sys.exit(2)
 
-# ffmpeg 실행
-output_file_wav = convert_to_wav(str(input_file), str(output_file_wav))
+    # DB 스키마 준비
+    init_db()
 
-# Whisper 모델 로드 및 음성 인식
-model_size = input("사용할 Whisper 모델 크기(small, medium, large 등)를 입력하세요 (기본: small): ").strip() or "small"
-whisper_model = stt_engine.STTProcessor(model_size, device="cuda", compute_type="float32")
-stt_results = whisper_model.stt_whisper(output_file_wav)
+    # Oracle에서 범위 전체 fetchall
+    rows = fetch_contents_by_year_range(args.year_start, args.year_end)
+    if not rows:
+        logger.error("❌ 조회 결과가 없습니다.")
+        sys.exit(1)
 
-# STT 결과 JSON 저장
-output_file_json = stt_engine.save_to_json(stt_results, output_file_json)
+    # Whisper 모델 1회 로드
+    whisper = stt_engine.STTProcessor(args.model_size, device="cuda", compute_type="float32")
 
-# DB 준비(최초 1회 호출해도 되고, 매 실행시 호출해도 부담 거의 없음)
-init_db()
+    total = len(rows)
+    logger.info(f"📦 총 처리 건수: {total} (연도: {args.year_start}~{args.year_end})")
 
-# 메타 저장
-upsert_record(
-    results=results,
-    wav_path=str(output_file_wav),
-    json_path=str(output_file_json),
-)
-
-# 세그먼트 저장
-upsert_segments(content_id=str(results["CONTENT_ID"]), stt_segments=stt_results)
+    for i, rec in enumerate(rows, start=1):
+        cid = rec.get("CONTENT_ID")
+        try:
+            logger.info(f"[{i}/{total}] 처리 시작: CONTENT_ID={cid}")
+            process_one(rec, whisper)
+            logger.info(f"[{i}/{total}] 처리 완료: CONTENT_ID={cid}")
+        except Exception as e:
+            logger.error(f"[{i}/{total}] ⚠️ 처리 실패: CONTENT_ID={cid}, err={e}")
 
 if __name__ == "__main__":
-    pass
+    main()
