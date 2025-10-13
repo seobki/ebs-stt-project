@@ -218,3 +218,10 @@ def upsert_segments(content_id: str, stt_segments: List[Dict]) -> None:
     except Exception as e:
         logger.error(f"❌ 세그먼트 저장 실패: content_id={content_id}, error={e}")
         raise
+
+_CHECK_EXISTS = "SELECT 1 FROM public.stt_index WHERE content_id = %s LIMIT 1;"
+def has_record(content_id: str) -> bool:
+    with _connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(_CHECK_EXISTS, (content_id,))
+            return cur.fetchone() is not None

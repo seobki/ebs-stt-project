@@ -8,15 +8,8 @@ logger = get_logger("stt_app")
 # 모델 로드 및 음성 인식
 
 class STTProcessor:
-    
-    VALID_MODELS = ["tiny", "base", "small", "medium", "large"]
 
-    def __init__(self, model_size="", device="cuda", compute_type="float32"):
-        if not model_size:
-            model_size = "small"
-        elif model_size not in self.VALID_MODELS:
-            logger.info(f"❌ 지원하지 않는 모델 크기입니다: {model_size}. 'small'으로 설정합니다.")
-            model_size = "small"
+    def __init__(self, model_size="small", device="cuda", compute_type="float32"):
 
         self.model_size = model_size
         logger.info(f"Whisper 모델 로드 중... 크기: {model_size}, 디바이스: {device}, 타입: {compute_type}")
